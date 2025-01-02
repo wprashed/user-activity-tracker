@@ -3,7 +3,7 @@
  * Plugin Name: User Activity Tracker
  * Description: Tracks user activities (pages viewed, time spent) and provides insights to admins with charts and detailed reports.
  * Version: 1.0
- * Author: Your Name
+ * Author: Rashed Hossain
  */
 
 // Enqueue Chart.js Library for Visualizations
