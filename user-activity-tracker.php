@@ -86,3 +86,66 @@ function uat_create_activity_table() {
 }
 
 register_activation_hook( __FILE__, 'uat_create_activity_table' );
+
+// Add the "User Activity" menu item to the WordPress admin
+function uat_add_admin_menu() {
+    add_menu_page(
+        'User Activity',          // Page title
+        'User Activity',          // Menu title
+        'manage_options',         // Capability
+        'user-activity',          // Menu slug
+        'uat_display_user_activity' // Callback function to display the content
+    );
+}
+
+add_action('admin_menu', 'uat_add_admin_menu');
+
+// Display User Activity on the Admin Page
+function uat_display_user_activity() {
+    global $wpdb;
+
+    // Fetch all users from the database
+    $users = get_users();
+
+    // If the table doesn't exist, create it
+    if ( ! $wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}user_activity'") ) {
+        echo '<div class="error"><p>The user activity table is not found. Please check the plugin installation.</p></div>';
+        return;
+    }
+
+    // Fetch activity for each user
+    echo '<div class="wrap"><h2>User Activity</h2>';
+    echo '<table class="widefat fixed" cellspacing="0">
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Page URL</th>
+                <th>Time Spent (Seconds)</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>';
+
+    foreach ($users as $user) {
+        // Get activity for the specific user
+        $results = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}user_activity WHERE user_id = %d ORDER BY timestamp DESC",
+                $user->ID
+            )
+        );
+
+        if ($results) {
+            foreach ($results as $row) {
+                echo '<tr>
+                    <td>' . esc_html($user->display_name) . '</td>
+                    <td>' . esc_html($row->page_url) . '</td>
+                    <td>' . esc_html($row->time_spent) . ' seconds</td>
+                    <td>' . esc_html($row->timestamp) . '</td>
+                </tr>';
+            }
+        }
+    }
+
+    echo '</tbody></table></div>';
+}
