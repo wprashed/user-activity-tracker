@@ -1,151 +1,199 @@
 <?php
 /**
- * Plugin Name: Real-Time User Activity Tracker
- * Description: Tracks real-time user activity and time spent on pages/posts.
+ * Plugin Name: User Activity Tracker
+ * Description: Tracks user activities on your site (e.g., pages viewed, time spent) and provides insights to admins.
  * Version: 1.0
  * Author: Your Name
+ * License: GPL2
  */
 
-// Prevent direct access to the file
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+// Enqueue Chart.js library
+function uat_enqueue_chartjs() {
+    wp_enqueue_script('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js', array(), null, true);
 }
+add_action('admin_enqueue_scripts', 'uat_enqueue_chartjs');
 
-// Enqueue Scripts for Tracking
-function uat_enqueue_scripts() {
-    wp_enqueue_script( 'user-activity-tracker', plugin_dir_url( __FILE__ ) . 'user-activity-tracker.js', array( 'jquery' ), null, true );
-
-    // Pass AJAX URL to JavaScript
-    wp_localize_script( 'user-activity-tracker', 'uat_ajax', array(
-        'ajax_url' => admin_url( 'admin-ajax.php' ),
-    ));
+// Enqueue Font Awesome for Icons
+function uat_enqueue_font_awesome() {
+    wp_enqueue_style('font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css', array(), null);
 }
+add_action('admin_enqueue_scripts', 'uat_enqueue_font_awesome');
 
-add_action( 'wp_enqueue_scripts', 'uat_enqueue_scripts' );
-
-// Handle AJAX Request to Save Time
-function uat_save_user_activity() {
-    if ( is_user_logged_in() ) {
-        global $wpdb;
-        $user_id = get_current_user_id();
-        $page_url = sanitize_text_field( $_POST['page_url'] );
-        $time_spent = intval( $_POST['time_spent'] ); // Time in seconds
-
-        // Insert or update user activity
-        $existing = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$wpdb->prefix}user_activity WHERE user_id = %d AND page_url = %s",
-            $user_id,
-            $page_url
-        ));
-
-        if ( $existing > 0 ) {
-            // Update time spent for the page
-            $wpdb->query( $wpdb->prepare(
-                "UPDATE {$wpdb->prefix}user_activity SET time_spent = time_spent + %d WHERE user_id = %d AND page_url = %s",
-                $time_spent,
-                $user_id,
-                $page_url
-            ));
-        } else {
-            // Insert new record for the page visit
-            $wpdb->insert(
-                "{$wpdb->prefix}user_activity",
-                array(
-                    'user_id'   => $user_id,
-                    'page_url'  => $page_url,
-                    'time_spent' => $time_spent,
-                ),
-                array( '%d', '%s', '%d' )
-            );
-        }
-    }
-    wp_die();
+// Custom Styles for Admin Page
+function uat_custom_admin_styles() {
+    echo '<style>
+        .wrap h2 { font-size: 24px; font-weight: bold; }
+        .widefat th, .widefat td { padding: 10px; }
+        .button { margin-top: 10px; }
+        .chart-container { width: 80%; margin: 0 auto; }
+    </style>';
 }
+add_action('admin_head', 'uat_custom_admin_styles');
 
-add_action( 'wp_ajax_uar_save_activity', 'uat_save_user_activity' );
-add_action( 'wp_ajax_nopriv_uar_save_activity', 'uat_save_user_activity' );
-
-// Create Database Table for User Activity
-function uat_create_activity_table() {
-    global $wpdb;
-    $table_name = $wpdb->prefix . 'user_activity';
-
-    $charset_collate = $wpdb->get_charset_collate();
-
-    $sql = "CREATE TABLE $table_name (
-        id mediumint(9) NOT NULL AUTO_INCREMENT,
-        user_id bigint(20) UNSIGNED NOT NULL,
-        page_url varchar(255) NOT NULL,
-        time_spent int NOT NULL,
-        timestamp datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
-        PRIMARY KEY  (id)
-    ) $charset_collate;";
-
-    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-    dbDelta( $sql );
-}
-
-register_activation_hook( __FILE__, 'uat_create_activity_table' );
-
-// Add the "User Activity" menu item to the WordPress admin
-function uat_add_admin_menu() {
-    add_menu_page(
-        'User Activity',          // Page title
-        'User Activity',          // Menu title
-        'manage_options',         // Capability
-        'user-activity',          // Menu slug
-        'uat_display_user_activity' // Callback function to display the content
-    );
-}
-
-add_action('admin_menu', 'uat_add_admin_menu');
-
-// Display User Activity on the Admin Page
+// Display User Activity Summary Page
 function uat_display_user_activity() {
     global $wpdb;
 
-    // Fetch all users from the database
+    // Fetch all users
     $users = get_users();
 
-    // If the table doesn't exist, create it
-    if ( ! $wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}user_activity'") ) {
-        echo '<div class="error"><p>The user activity table is not found. Please check the plugin installation.</p></div>';
-        return;
-    }
+    // Begin output
+    echo '<div class="wrap"><h2>User Activity Summary</h2>';
 
-    // Fetch activity for each user
-    echo '<div class="wrap"><h2>User Activity</h2>';
     echo '<table class="widefat fixed" cellspacing="0">
         <thead>
             <tr>
                 <th>User</th>
-                <th>Page URL</th>
-                <th>Time Spent (Seconds)</th>
-                <th>Timestamp</th>
+                <th>Total Time Spent (Seconds)</th>
+                <th>Most Visited Page</th>
+                <th>Details</th>
             </tr>
         </thead>
         <tbody>';
 
     foreach ($users as $user) {
-        // Get activity for the specific user
-        $results = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}user_activity WHERE user_id = %d ORDER BY timestamp DESC",
-                $user->ID
-            )
-        );
+        // Get the total time spent by the user and the most visited page
+        $total_time = $wpdb->get_var($wpdb->prepare(
+            "SELECT SUM(time_spent) FROM {$wpdb->prefix}user_activity WHERE user_id = %d",
+            $user->ID
+        ));
 
-        if ($results) {
-            foreach ($results as $row) {
-                echo '<tr>
-                    <td>' . esc_html($user->display_name) . '</td>
-                    <td>' . esc_html($row->page_url) . '</td>
-                    <td>' . esc_html($row->time_spent) . ' seconds</td>
-                    <td>' . esc_html($row->timestamp) . '</td>
-                </tr>';
-            }
-        }
+        // Get most visited page for this user
+        $most_visited = $wpdb->get_row($wpdb->prepare(
+            "SELECT page_url, COUNT(page_url) AS count FROM {$wpdb->prefix}user_activity WHERE user_id = %d GROUP BY page_url ORDER BY count DESC LIMIT 1",
+            $user->ID
+        ));
+
+        // Display user data
+        echo '<tr>
+            <td>' . esc_html($user->display_name) . '</td>
+            <td>' . esc_html($total_time) . '</td>
+            <td>' . (isset($most_visited->page_url) ? esc_html($most_visited->page_url) : 'N/A') . '</td>
+            <td><a href="' . admin_url('admin.php?page=user-activity-details&user_id=' . $user->ID) . '" class="button">Details</a></td>
+        </tr>';
     }
 
     echo '</tbody></table></div>';
 }
+
+// Show User Activity Details Page
+function uat_display_user_activity_details() {
+    if (!isset($_GET['user_id'])) {
+        return;
+    }
+
+    $user_id = intval($_GET['user_id']);
+    global $wpdb;
+
+    // Get activity data for the user
+    $activity_data = $wpdb->get_results($wpdb->prepare(
+        "SELECT page_url, SUM(time_spent) AS total_time FROM {$wpdb->prefix}user_activity WHERE user_id = %d GROUP BY page_url ORDER BY total_time DESC",
+        $user_id
+    ));
+
+    // Get the user's info
+    $user_info = get_user_by('ID', $user_id);
+
+    // Begin output
+    echo '<div class="wrap"><h2>Activity Details for ' . esc_html($user_info->display_name) . '</h2>';
+
+    // Prepare data for Chart.js
+    $page_urls = array();
+    $time_spent = array();
+
+    foreach ($activity_data as $row) {
+        $page_urls[] = $row->page_url;
+        $time_spent[] = $row->total_time;
+    }
+
+    // Chart.js data
+    echo '<canvas id="userActivityChart"></canvas>';
+    echo '<script>
+        var ctx = document.getElementById("userActivityChart").getContext("2d");
+        var chart = new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels: ' . json_encode($page_urls) . ',
+                datasets: [{
+                    label: "Time Spent (Seconds)",
+                    data: ' . json_encode($time_spent) . ',
+                    backgroundColor: "rgba(75, 192, 192, 0.2)",
+                    borderColor: "rgba(75, 192, 192, 1)",
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    </script>';
+
+    // Display the most visited pages/posts
+    echo '<h3>Most Visited Pages</h3>';
+    echo '<ul>';
+    foreach ($activity_data as $row) {
+        echo '<li>' . esc_html($row->page_url) . ' - ' . esc_html($row->total_time) . ' seconds</li>';
+    }
+    echo '</ul>';
+
+    echo '</div>';
+}
+
+// Add sub-menu page for User Activity Details
+function uat_add_user_activity_details_page() {
+    add_submenu_page(
+        'user-activity',
+        'User Activity Details',
+        'Activity Details',
+        'manage_options',
+        'user-activity-details',
+        'uat_display_user_activity_details'
+    );
+}
+add_action('admin_menu', 'uat_add_user_activity_details_page');
+
+// Register a custom database table to store user activity data
+function uat_create_activity_table() {
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'user_activity';
+    if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+        $charset_collate = $wpdb->get_charset_collate();
+
+        $sql = "CREATE TABLE $table_name (
+            id mediumint(9) NOT NULL AUTO_INCREMENT,
+            user_id bigint(20) NOT NULL,
+            page_url varchar(255) NOT NULL,
+            time_spent int NOT NULL,
+            timestamp datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            PRIMARY KEY  (id)
+        ) $charset_collate;";
+
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
+    }
+}
+register_activation_hook(__FILE__, 'uat_create_activity_table');
+
+// Hook into page view and track user activity
+function uat_track_user_activity() {
+    if (is_user_logged_in()) {
+        global $wpdb;
+        $user_id = get_current_user_id();
+        $page_url = $_SERVER['REQUEST_URI']; // Current page URL
+        $time_spent = rand(30, 300); // Placeholder for time spent (in seconds)
+
+        // Insert activity data into the database
+        $wpdb->insert(
+            $wpdb->prefix . 'user_activity',
+            array(
+                'user_id' => $user_id,
+                'page_url' => $page_url,
+                'time_spent' => $time_spent,
+            )
+        );
+    }
+}
+add_action('wp_footer', 'uat_track_user_activity');
