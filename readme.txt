@@ -57,17 +57,11 @@ You can configure the log retention period from the plugin's settings page.
 
 == Screenshots ==
 
-1. **Activity Logs Dashboard**  
-   View a detailed list of user activities directly in the admin dashboard.
+1. **Activity Logs List**  
+   View a list of user activities directly in the admin dashboard.
 
-2. **Log Filtering Options**  
-   Easily filter logs by user, activity type, or date range.
-
-3. **Export to CSV**  
-   Download logs in CSV format for external analysis.
-
-4. **Plugin Settings**  
-   Configure log retention period, activity types to track, and other options.
+2. **Activity Log Details**  
+   View a detaileds of user activities directly in the admin dashboard.
 
 == Changelog ==
 
