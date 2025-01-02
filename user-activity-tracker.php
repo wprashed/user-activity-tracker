@@ -34,7 +34,7 @@ function uat_display_user_activity() {
 
     echo '<div class="wrap"><h1>User Activity Overview</h1>';
 
-    echo '<table class="widefat fixed" cellspacing="0">
+    echo '<table class="uat-table">
         <thead>
             <tr>
                 <th>User</th>
@@ -95,7 +95,7 @@ function uat_display_user_activity_details() {
     }
 
     // Chart.js data for the activity
-    echo '<div class="chart-container" style="max-width: 800px; margin: 0 auto; padding-bottom: 30px;">
+    echo '<div class="chart-container">
             <canvas id="userActivityChart"></canvas>
         </div>';
 
@@ -108,13 +108,21 @@ function uat_display_user_activity_details() {
                 datasets: [{
                     label: "Time Spent (Seconds)",
                     data: ' . json_encode($time_spent) . ',
-                    backgroundColor: "rgba(75, 192, 192, 0.2)",
-                    borderColor: "rgba(75, 192, 192, 1)",
+                    backgroundColor: "#4CAF50",
+                    borderColor: "#388E3C",
                     borderWidth: 1
                 }]
             },
             options: {
                 responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 100
+                        }
+                    }
+                },
                 plugins: {
                     legend: {
                         position: "top",
@@ -126,21 +134,13 @@ function uat_display_user_activity_details() {
                             }
                         }
                     }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 100,
-                        }
-                    }
                 }
             }
         });
     </script>';
 
     echo '<h3>Most Visited Pages</h3>';
-    echo '<ul>';
+    echo '<ul class="uat-activity-list">';
     foreach ($activity_data as $row) {
         echo '<li>' . esc_html($row->page_url) . ' - ' . esc_html($row->total_time) . ' seconds</li>';
     }
