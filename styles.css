@@ -1,42 +1,68 @@
 /* styles.css */
 
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
 }
 
-.wrap h1 {
-    color: #333;
+.wrap {
+    background-color: #fff;
+    padding: 20px;
+    margin: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
     font-size: 28px;
     font-weight: bold;
+    color: #333;
 }
 
-.widefat {
-    background-color: #f9f9f9;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+.uat-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
 }
 
-.widefat th, .widefat td {
-    padding: 10px;
+.uat-table th, .uat-table td {
+    padding: 12px;
     text-align: left;
+    border-bottom: 1px solid #ddd;
 }
 
-.chart-container {
-    margin: 20px 0;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background-color: #fff;
+.uat-table th {
+    background-color: #f2f2f2;
 }
 
 button {
-    padding: 8px 15px;
+    padding: 10px 20px;
     background-color: #4CAF50;
     color: #fff;
     border: none;
     border-radius: 5px;
+    cursor: pointer;
 }
 
 button:hover {
     background-color: #45a049;
+}
+
+.chart-container {
+    width: 80%;
+    margin: 20px auto;
+}
+
+.uat-activity-list {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.uat-activity-list li {
+    background-color: #f9f9f9;
+    margin: 5px 0;
+    padding: 10px;
+    border-radius: 5px;
 }
