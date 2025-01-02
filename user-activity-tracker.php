@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: User Activity Tracker
- * Description: Tracks user activities on your site (e.g., pages viewed, time spent) and provides insights to admins.
+ * Description: Tracks user activities (e.g., pages viewed, time spent) and provides insights and reports to admins.
  * Version: 1.0
  * Author: Your Name
  * License: GPL2
@@ -30,7 +30,21 @@ function uat_custom_admin_styles() {
 }
 add_action('admin_head', 'uat_custom_admin_styles');
 
-// Display User Activity Summary Page
+// Add the User Activity page to the admin menu
+function uat_add_user_activity_page() {
+    add_menu_page(
+        'User Activity Tracker',       // Page Title
+        'User Activity',               // Menu Title
+        'manage_options',              // Capability
+        'user-activity-tracker',       // Menu Slug
+        'uat_display_user_activity',   // Callback Function
+        'dashicons-chart-bar',         // Icon URL
+        6                              // Position
+    );
+}
+add_action('admin_menu', 'uat_add_user_activity_page');
+
+// Display the User Activity Summary page
 function uat_display_user_activity() {
     global $wpdb;
 
@@ -144,7 +158,7 @@ function uat_display_user_activity_details() {
 // Add sub-menu page for User Activity Details
 function uat_add_user_activity_details_page() {
     add_submenu_page(
-        'user-activity',
+        'user-activity-tracker',
         'User Activity Details',
         'Activity Details',
         'manage_options',
