@@ -1,58 +1,38 @@
 <?php
 /**
  * Plugin Name: User Activity Tracker
- * Description: Tracks user activities (e.g., pages viewed, time spent) and provides insights and reports to admins.
+ * Description: Tracks user activities (pages viewed, time spent) and provides insights to admins with charts and detailed reports.
  * Version: 1.0
  * Author: Your Name
- * License: GPL2
  */
 
-// Enqueue Chart.js library
+// Enqueue Chart.js Library for Visualizations
 function uat_enqueue_chartjs() {
     wp_enqueue_script('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js', array(), null, true);
+    wp_enqueue_style('uat-custom-styles', plugin_dir_url(__FILE__) . 'styles.css');
 }
 add_action('admin_enqueue_scripts', 'uat_enqueue_chartjs');
 
-// Enqueue Font Awesome for Icons
-function uat_enqueue_font_awesome() {
-    wp_enqueue_style('font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css', array(), null);
-}
-add_action('admin_enqueue_scripts', 'uat_enqueue_font_awesome');
-
-// Custom Styles for Admin Page
-function uat_custom_admin_styles() {
-    echo '<style>
-        .wrap h2 { font-size: 24px; font-weight: bold; }
-        .widefat th, .widefat td { padding: 10px; }
-        .button { margin-top: 10px; }
-        .chart-container { width: 80%; margin: 0 auto; }
-    </style>';
-}
-add_action('admin_head', 'uat_custom_admin_styles');
-
-// Add the User Activity page to the admin menu
+// Add Menu Page for User Activity Tracker
 function uat_add_user_activity_page() {
     add_menu_page(
-        'User Activity Tracker',       // Page Title
-        'User Activity',               // Menu Title
-        'manage_options',              // Capability
-        'user-activity-tracker',       // Menu Slug
-        'uat_display_user_activity',   // Callback Function
-        'dashicons-chart-bar',         // Icon URL
-        6                              // Position
+        'User Activity Tracker',
+        'User Activity',
+        'manage_options',
+        'user-activity-tracker',
+        'uat_display_user_activity',
+        'dashicons-chart-bar',
+        6
     );
 }
 add_action('admin_menu', 'uat_add_user_activity_page');
 
-// Display the User Activity Summary page
+// Display User Activity Overview
 function uat_display_user_activity() {
     global $wpdb;
-
-    // Fetch all users
     $users = get_users();
 
-    // Begin output
-    echo '<div class="wrap"><h2>User Activity Summary</h2>';
+    echo '<div class="wrap"><h1>User Activity Overview</h1>';
 
     echo '<table class="widefat fixed" cellspacing="0">
         <thead>
@@ -66,31 +46,28 @@ function uat_display_user_activity() {
         <tbody>';
 
     foreach ($users as $user) {
-        // Get the total time spent by the user and the most visited page
         $total_time = $wpdb->get_var($wpdb->prepare(
             "SELECT SUM(time_spent) FROM {$wpdb->prefix}user_activity WHERE user_id = %d",
             $user->ID
         ));
 
-        // Get most visited page for this user
         $most_visited = $wpdb->get_row($wpdb->prepare(
             "SELECT page_url, COUNT(page_url) AS count FROM {$wpdb->prefix}user_activity WHERE user_id = %d GROUP BY page_url ORDER BY count DESC LIMIT 1",
             $user->ID
         ));
 
-        // Display user data
         echo '<tr>
             <td>' . esc_html($user->display_name) . '</td>
             <td>' . esc_html($total_time) . '</td>
             <td>' . (isset($most_visited->page_url) ? esc_html($most_visited->page_url) : 'N/A') . '</td>
-            <td><a href="' . admin_url('admin.php?page=user-activity-details&user_id=' . $user->ID) . '" class="button">Details</a></td>
+            <td><a href="' . admin_url('admin.php?page=user-activity-details&user_id=' . $user->ID) . '" class="button">View Details</a></td>
         </tr>';
     }
 
     echo '</tbody></table></div>';
 }
 
-// Show User Activity Details Page
+// Display User Activity Details
 function uat_display_user_activity_details() {
     if (!isset($_GET['user_id'])) {
         return;
@@ -105,23 +82,23 @@ function uat_display_user_activity_details() {
         $user_id
     ));
 
-    // Get the user's info
     $user_info = get_user_by('ID', $user_id);
+    echo '<div class="wrap"><h1>Activity Details for ' . esc_html($user_info->display_name) . '</h1>';
 
-    // Begin output
-    echo '<div class="wrap"><h2>Activity Details for ' . esc_html($user_info->display_name) . '</h2>';
-
-    // Prepare data for Chart.js
-    $page_urls = array();
-    $time_spent = array();
+    // Prepare data for the chart
+    $page_urls = [];
+    $time_spent = [];
 
     foreach ($activity_data as $row) {
         $page_urls[] = $row->page_url;
         $time_spent[] = $row->total_time;
     }
 
-    // Chart.js data
-    echo '<canvas id="userActivityChart"></canvas>';
+    // Chart.js data for the activity
+    echo '<div class="chart-container" style="max-width: 800px; margin: 0 auto; padding-bottom: 30px;">
+            <canvas id="userActivityChart"></canvas>
+        </div>';
+
     echo '<script>
         var ctx = document.getElementById("userActivityChart").getContext("2d");
         var chart = new Chart(ctx, {
@@ -137,14 +114,31 @@ function uat_display_user_activity_details() {
                 }]
             },
             options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: "top",
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(tooltipItem) {
+                                return tooltipItem.raw + " seconds";
+                            }
+                        }
+                    }
+                },
                 scales: {
-                    y: { beginAtZero: true }
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 100,
+                        }
+                    }
                 }
             }
         });
     </script>';
 
-    // Display the most visited pages/posts
     echo '<h3>Most Visited Pages</h3>';
     echo '<ul>';
     foreach ($activity_data as $row) {
@@ -155,7 +149,7 @@ function uat_display_user_activity_details() {
     echo '</div>';
 }
 
-// Add sub-menu page for User Activity Details
+// Add Activity Details Submenu
 function uat_add_user_activity_details_page() {
     add_submenu_page(
         'user-activity-tracker',
@@ -168,14 +162,12 @@ function uat_add_user_activity_details_page() {
 }
 add_action('admin_menu', 'uat_add_user_activity_details_page');
 
-// Register a custom database table to store user activity data
+// Register User Activity Table
 function uat_create_activity_table() {
     global $wpdb;
-
     $table_name = $wpdb->prefix . 'user_activity';
     if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
         $charset_collate = $wpdb->get_charset_collate();
-
         $sql = "CREATE TABLE $table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             user_id bigint(20) NOT NULL,
@@ -184,22 +176,21 @@ function uat_create_activity_table() {
             timestamp datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
             PRIMARY KEY  (id)
         ) $charset_collate;";
-
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
     }
 }
 register_activation_hook(__FILE__, 'uat_create_activity_table');
 
-// Hook into page view and track user activity
+// Track User Activity (Page Views, Time Spent)
 function uat_track_user_activity() {
     if (is_user_logged_in()) {
         global $wpdb;
         $user_id = get_current_user_id();
         $page_url = $_SERVER['REQUEST_URI']; // Current page URL
-        $time_spent = rand(30, 300); // Placeholder for time spent (in seconds)
+        $time_spent = rand(30, 300); // Random time spent between 30 to 300 seconds for demo
 
-        // Insert activity data into the database
+        // Insert user activity into the database
         $wpdb->insert(
             $wpdb->prefix . 'user_activity',
             array(
